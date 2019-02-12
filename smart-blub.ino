@@ -247,7 +247,7 @@ void setup() {
   mqtt.RUN();
   mqtt.SETCALLBACK();
 
-//  get mac ID
+  wifiManager.SETUP();
   wifiManager.GETMACID();
 
 
@@ -272,7 +272,6 @@ void setup() {
       //delete  the saved configuration of wifi in STA mode 
       delay(500);
       WiFi.disconnect(true);
-      Serial.println("chinh xac ma");
       break;
     case 3 :
       EEPROM.write(addCount, 4);
@@ -340,19 +339,14 @@ void saveRGB()
 }
 void loop() {
 
-  // if over 3 seconds
+  // if over 3 time
   if ((unsigned long) (millis() - timeAmountToggle) > 5000 )
   {
     if (countToggle >= 1)
     {
       if (countToggle >= 3 && countToggle < 6)
       {
-        wifiManager.SETUP();
-        wifiManager.RUN();
-        if(wifiManager.CONNECTION())
-        {
-          resetToggle();
-        }
+        //notthing to do
       }
       else if (countToggle == 6)
       {
@@ -362,16 +356,26 @@ void loop() {
       else
       {
         resetToggle();
-        countToggle = 0;
       }
     }
 
   }
 
+  // if smartconfig done -> reset toggle
+  if(toggleStatus)
+  {
+    toggleStatus = false;
+    resetToggle();
+  }
+
+  // check had smart config
   if(stationStatus)
   {
+    wifiManager.RUN();
     wifiManager.RECONNECT();
   }
+  
+  //keep alive mqtt 
   if (wifiManager.CONNECTION())
   {
     mqtt.LOOP();
