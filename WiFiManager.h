@@ -24,5 +24,6 @@ class SetupWiFi
 
 extern SetupWiFi wifiManager;
 extern String macID;
+extern bool toggleStatus;
 
 #endif

@@ -5,11 +5,11 @@
 #include "WiFiManager.h"
 #include "LedManager.h"
 
-#define mqtt_server "m10.cloudmqtt.com" // could mqtt server
-#define mqtt_topic_pub "pubLedBulb"   // could mqtt topic pub
-#define mqtt_topic_sub "subLedBulb"   // could mqtt topic sub
-#define mqtt_user "vpfiytsx"    // could mqtt user
-#define mqtt_pwd "q2M1pcYye1IV" // could mqtt password
+//#define mqtt_server "m10.cloudmqtt.com" // could mqtt server
+//#define mqtt_topic_pub "pubLedBulb"   // could mqtt topic pub
+//#define mqtt_topic_sub "subLedBulb"   // could mqtt topic sub
+//#define mqtt_user "vpfiytsx"    // could mqtt user
+//#define mqtt_pwd "q2M1pcYye1IV" // could mqtt password
 uint16_t mqtt_port = 10261; //could mqtt port
 
 // tạo hằng để lưu new MQTT
@@ -19,12 +19,14 @@ const char* charMQTTSub;
 const char* charMQTTUser;
 const char* charMQTTPwd;
 
-// biến để lưu độ dài
-byte serverLength, pubLength, subLength, userLength, pwdLength, portLength;
+// length of family topic on rom
+byte topicLength;
+String familyTopic = "";
 
 // rgb value
 int red, green, blue;
 float white;
+
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -35,78 +37,31 @@ MQTTClass::MQTTClass(){
 
 void MQTTClass::SETUP(){
  // if have length value on rom-95 -> write
+  charMQTTServer = "m10.cloudmqtt.com";
+  charMQTTPub = "pubLedBulb";
+  charMQTTUser = "vpfiytsx";
+  charMQTTPwd = "q2M1pcYye1IV";
   if (EEPROM.read(95) == 255 || EEPROM.read(95) == 0)
   {
-    // để mặc định các giá trị
-    charMQTTServer = mqtt_server;
-    charMQTTPub = mqtt_topic_pub;
-    charMQTTSub = mqtt_topic_sub;
-    charMQTTUser = mqtt_user;
-    charMQTTPwd = mqtt_pwd;
+    charMQTTSub = "subLedBulb";
     Serial.println("set default MQTT");
     Serial.println(charMQTTServer);
   }
   else
   {
-    portLength = EEPROM.read(94);
-    serverLength = EEPROM.read(95);
-    pubLength = EEPROM.read(96);
-    subLength = EEPROM.read(97);
-    userLength = EEPROM.read(98);
-    pwdLength = EEPROM.read(99);
+    Serial.println("has family id");
+    topicLength = EEPROM.read(95);
+    int countFTopic = 100;
+    for (int i = 0; i < topicLength; i++)
+    {
+      familyTopic += char(EEPROM.read(countFTopic));
+      countFTopic++;
+    }
+    Serial.print("family topic : ");
+    Serial.println(familyTopic);
 
-    //get server from eeprom
-    String svString, pubString, subString, userString, pwdString, portString;
-
-    // lấy độ dài và giá trị của new cloud
-    int countMQTTLength = 100;
-    for (int i = 0; i < serverLength; i++)
-    {
-      svString += char(EEPROM.read(countMQTTLength));
-      countMQTTLength++;
-    }
-    for (int i = 0; i < pubLength; i++)
-    {
-      pubString += char(EEPROM.read(countMQTTLength));
-      countMQTTLength++;
-    }
-    for (int i = 0; i < subLength; i++)
-    {
-      subString += char(EEPROM.read(countMQTTLength));
-      countMQTTLength++;
-    }
-    for (int i = 0; i < userLength; i++)
-    {
-      userString += char(EEPROM.read(countMQTTLength));
-      countMQTTLength++;
-    }
-    for (int i = 0; i < pwdLength; i++)
-    {
-      pwdString += char(EEPROM.read(countMQTTLength));
-      countMQTTLength++;
-    }
-    for (int i = 0; i < portLength; i++)
-    {
-      portString += char(EEPROM.read(countMQTTLength));
-      countMQTTLength++;
-    }
-
-    // make json object and set value for new cloud
-    StaticJsonBuffer<500> jsonEEPBuffer;
-    JsonObject& jsonEEPROM  = jsonEEPBuffer.createObject();
-    jsonEEPROM["server"] = svString;
-    jsonEEPROM["publish"] = pubString;
-    jsonEEPROM["subcribe"] = subString;
-    jsonEEPROM["user"] = userString;
-    jsonEEPROM["pwd"] = pwdString;
-    jsonEEPROM["port"] = portString;
-
-    mqtt_port = portString.toInt();
-    charMQTTServer = jsonEEPROM["server"];
-    charMQTTPub = jsonEEPROM["publish"];
-    charMQTTSub = jsonEEPROM["subcribe"];
-    charMQTTUser = jsonEEPROM["user"];
-    charMQTTPwd = jsonEEPROM["pwd"];
+    Serial.print("family topic is going to use :");
+    Serial.println(charMQTTSub);
   }
 }
 
@@ -124,23 +79,54 @@ void callback(char* topic, byte* payload, unsigned int length) {
   for (int i = 0; i < length; i++) {
     char receivedChar = (char)payload[i];
     stringMessage += (String)receivedChar;
-    Serial.print(receivedChar);
   }
-  Serial.print("string mess la : ");
+  Serial.print("string mess : ");
   Serial.println(stringMessage);
   StaticJsonBuffer<500> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(stringMessage);
-  int modeMess = (int)root["mode"];
-  String stringMode = root["mode"].asString();
-  JsonArray& arrayMode = (root["id"]);
-  for(int i=0; i<arrayMode.size();i++)
+  int functionMess = (int)root["function"];
+  String stringfunction = root["function"].asString();
+  
+  // make list devices 
+  JsonArray& arrayfunction = (root["id"]);
+  for(int i=0; i<arrayfunction.size();i++)
   {
-    String deviceID = arrayMode[i]["idDevice"];
+    String deviceID = arrayfunction[i]["deviceID"];
     if(deviceID == macID)
     {
       Serial.println("true device ID");
-      if(modeMess == 1)
+      
+      if(functionMess == 1)
       {
+        Serial.println("turn on Device");
+        //if open app and turn on/off will use color RGB on ROM which got on setup time
+        
+        //turn off white led
+        ledManager.OFFDILED(WHITE_PIN);
+        Serial.println("take a old colors");
+        if(red == 2000)
+        {
+          ledManager.ONANLED(WHITE_PIN,white);
+          Serial.println(white);
+        }
+        else
+        {
+          ledManager.ONANLED(RED_PIN,red);
+          ledManager.ONANLED(GREEN_PIN,green);
+          ledManager.ONANLED(BLUE_PIN,blue);
+        }
+      }
+      else if (functionMess == 2)
+      {
+        Serial.println("turn off Device");
+        ledManager.OFFANLED(RED_PIN);
+        ledManager.OFFANLED(GREEN_PIN);
+        ledManager.OFFANLED(BLUE_PIN);
+        ledManager.OFFDILED(WHITE_PIN);
+      }
+      else if(functionMess == 3)
+      {
+        Serial.println("change rgb color of Device");
         //turn off white led
         ledManager.OFFDILED(WHITE_PIN);
         
@@ -165,28 +151,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
         }
         else
         {
-          Serial.println("take a old colors");
-          if(red == 2000)
-          {
-            ledManager.ONANLED(WHITE_PIN,white);
-            Serial.println(white);
-          }
-          else
-          {
-            ledManager.ONANLED(RED_PIN,red);
-            ledManager.ONANLED(GREEN_PIN,green);
-            ledManager.ONANLED(BLUE_PIN,blue);
-          }
+          Serial.println("don't have color");
         }
       }
-      else if (modeMess == 0)
+      else if (functionMess == 4)
       {
-        ledManager.OFFANLED(RED_PIN);
-        ledManager.OFFANLED(GREEN_PIN);
-        ledManager.OFFANLED(BLUE_PIN);
-        ledManager.OFFDILED(WHITE_PIN);
-      } else if (modeMess == 2)
-      {
+          Serial.println("change white color of Device");
+          
           int brightness = (int)root["brightness"];
           analogWrite(RED_PIN, 0);
           analogWrite(GREEN_PIN, 0);
@@ -198,6 +169,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
           Serial.print("den trang sang voi gia tri");
           Serial.println(white);
       }
+//      else if(functionMess == 9)
+//      {
+//        Serial.println("setup new topic");
+//        String rFamilyTopic = root["topic"].asString();
+//        EEPROM.write(95, (int)rFamilyTopic.length());
+//        EEPROM.commit();
+//        Serial.println(rFamilyTopic);
+//        int total = 100;
+//        for (int i = 0; i < rFamilyTopic.length(); i++)
+//        {
+//          EEPROM.put(total, rFamilyTopic[i]);
+//          total++;
+//          EEPROM.commit();
+//        }
+//      }
       else{
         Serial.println("truong hop ngoai le");
       }
@@ -214,7 +200,20 @@ void reconnect(){
   // Chờ tới khi kết nối
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    // Thực hiện kết nối với mqtt user và pass
+    if (EEPROM.read(95) == 255 || EEPROM.read(95) == 0)
+    {
+      charMQTTSub = "subLedBulb";
+      Serial.println("set default MQTT");
+      Serial.println(charMQTTServer);
+    }
+    else
+    {
+      // make json object and set value for new cloud
+      StaticJsonBuffer<500> jsonEEPBuffer;
+      JsonObject& jsonEEPROM  = jsonEEPBuffer.createObject();
+      jsonEEPROM["fTopic"] = familyTopic;
+      charMQTTSub = jsonEEPROM["fTopic"];
+    }
     delay(500);
     Serial.println(charMQTTUser);
     delay(500);
@@ -225,8 +224,8 @@ void reconnect(){
     Serial.println(charMQTTPub);
     delay(500);
     
-    Serial.println("khong hieu");
-    if (client.connect("Ngoc233", charMQTTUser, charMQTTPwd)) {
+//    const char *id, const char *user, const char *pass, const char* willTopic, uint8_t willQos, boolean willRetain, const char* willMessage, boolean cleanSession
+    if (client.connect("ngoc1995", charMQTTUser, charMQTTPwd)) {
       Serial.println("connected");
       // Khi kết nối sẽ publish thông báo
       client.publish(charMQTTPub, "ESP_reconnected");

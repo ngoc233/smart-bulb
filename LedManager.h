@@ -1,6 +1,6 @@
-#ifndef setupMQTT_h
+#ifndef setupLed_h
 #include "Arduino.h"
-#define setupMQTT_h
+#define setupLed_h
 
 class LedManager{
   public:

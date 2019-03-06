@@ -38,6 +38,7 @@ void SetupWiFi::RUN(){
         ledManager.ONDILED(WHITE_PIN);
         Serial.println("SmartConfig Success");
         wifiManager.GETMACID();
+        toggleStatus = true;
         break;
       }
     }
@@ -59,7 +60,6 @@ void SetupWiFi::RUN(){
 
 // SETUP UDP
 void SetupWiFi::RECONNECT(){
-    wifiManager.SETUP();
     // Nhận gói tin gửi từ ESPTouch
     Udp.parsePacket();
     //In IP của ESP8266
@@ -85,3 +85,4 @@ bool SetupWiFi::CONNECTION(){
 
 SetupWiFi wifiManager = SetupWiFi();
 String macID = macID;
+bool toggleStatus;
